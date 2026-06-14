@@ -384,6 +384,7 @@ function ScoreDetail({ row, courseName }) {
 function Courses({ data, refresh }) {
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(null);
+  const [openTee, setOpenTee] = useState(null);
   const removeCourse = async (id) => { await api.delCourse(id); refresh(); };
 
   return (
@@ -418,10 +419,35 @@ function Courses({ data, refresh }) {
                 <thead><tr><th>Tee</th><th className="r">Rating</th><th className="r">Slope</th><th className="r">Par</th><th className="r">Yards</th><th className="r">Scorecard</th></tr></thead>
                 <tbody>{c.tees.map((t) => {
                   const yards = t.holes ? t.holes.reduce((s, h) => s + (Number(h.yd) || 0), 0) : 0;
+                  const teeOpen = openTee === t.id;
                   return (
-                  <tr key={t.id}><td>{t.name}</td><td className="r">{t.rating}</td><td className="r">{t.slope}</td><td className="r">{t.par}</td>
-                    <td className="r">{yards ? yards.toLocaleString() : "—"}</td>
-                    <td className="r">{t.holes ? <span className="pill">18 holes</span> : <span style={{ color: "var(--ink-soft)" }}>total only</span>}</td></tr>
+                  <Fragment key={t.id}>
+                    <tr>
+                      <td>{t.name}</td><td className="r">{t.rating}</td><td className="r">{t.slope}</td><td className="r">{t.par}</td>
+                      <td className="r">{yards ? yards.toLocaleString() : "—"}</td>
+                      <td className="r">{t.holes
+                        ? <button className="btn ghost sm" onClick={() => setOpenTee(teeOpen ? null : t.id)}>{teeOpen ? "Hide ▴" : "Scorecard ▾"}</button>
+                        : <span style={{ color: "var(--ink-soft)" }}>total only</span>}</td>
+                    </tr>
+                    {teeOpen && t.holes && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 0, border: "none", background: "transparent" }}>
+                          <div className="scorecard" style={{ margin: "0 0 12px" }}>
+                            <table className="num">
+                              <thead><tr><th className="lab">Hole</th>{t.holes.map((_, h) => <th key={h}>{h + 1}</th>)}<th>Tot</th></tr></thead>
+                              <tbody>
+                                <tr><td className="lab par">Par</td>{t.holes.map((h, k) => <td key={k} className="par">{h.par}</td>)}<td className="tot">{t.par}</td></tr>
+                                {yards > 0 && (
+                                  <tr><td className="lab par">Yards</td>{t.holes.map((h, k) => <td key={k} className="par">{h.yd ?? "—"}</td>)}<td className="tot">{yards.toLocaleString()}</td></tr>
+                                )}
+                                <tr><td className="lab">Stroke index</td>{t.holes.map((h, k) => <td key={k}>{h.si}</td>)}<td className="tot">—</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                   );
                 })}</tbody>
               </table>
