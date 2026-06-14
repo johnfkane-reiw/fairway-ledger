@@ -46,7 +46,11 @@ export async function onRequest(context) {
 function mapTee(t, i) {
   const holes =
     Array.isArray(t.holes) && t.holes.length === 18
-      ? t.holes.map((h, k) => ({ par: Number(h.par) || 4, si: Number(h.handicap) || k + 1 }))
+      ? t.holes.map((h, k) => ({
+          par: Number(h.par) || 4,
+          si: Number(h.handicap) || k + 1,
+          yd: Number(h.yardage) || null,
+        }))
       : null;
   const par =
     Number(t.par_total) || (holes ? holes.reduce((s, h) => s + h.par, 0) : 72);
