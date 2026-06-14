@@ -99,7 +99,7 @@ export function computeGolferRecord(golferId, scores, courseMap) {
         const v = s.holeScores[i];
         const raw = v == null || v === "" || isNaN(v) ? null : Number(v);
         const cap = ch == null ? h.par + 5 : h.par + 2 + strokesOnHole(ch, h.si);
-        return { hole: i + 1, par: h.par, si: h.si, raw, cap, adj: raw == null ? null : Math.min(raw, cap) };
+        return { hole: i + 1, par: h.par, si: h.si, yd: h.yd ?? null, raw, cap, adj: raw == null ? null : Math.min(raw, cap) };
       });
       grossTotal = holeDetail.reduce((t, d) => t + (d.raw || 0), 0);
       ags = holeDetail.reduce((t, d) => t + (d.adj || 0), 0);
