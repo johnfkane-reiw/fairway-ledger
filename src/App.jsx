@@ -113,6 +113,8 @@ export default function App() {
   const [view, setView] = useState("players");
   const [err, setErr] = useState(null);
   const [showDefs, setShowDefs] = useState(false);
+  const [pendingPlayer, setPendingPlayer] = useState(null);
+  const openPlayer = (id) => { setPendingPlayer(id); setView("players"); };
 
   const refresh = () =>
     api.getState().then(setData).catch((e) => setErr(String(e)));
@@ -147,10 +149,10 @@ export default function App() {
         ))}
       </nav>
       <main className="wrap">
-        {view === "players" && <Players data={data} refresh={refresh} />}
+        {view === "players" && <Players data={data} refresh={refresh} openId={pendingPlayer} clearOpen={() => setPendingPlayer(null)} />}
         {view === "courses" && <Courses data={data} refresh={refresh} />}
         {view === "post" && <PostScore data={data} refresh={refresh} go={setView} />}
-        {view === "league" && <Leagues data={data} refresh={refresh} />}
+        {view === "league" && <Leagues data={data} refresh={refresh} openPlayer={openPlayer} />}
       </main>
       <footer className="num" style={{ textAlign: "center", padding: "8px 20px 40px", color: "var(--ink-soft)", fontSize: 12 }}>
         Fairway Ledger · build <b>{__BUILD_SHA__}</b> · {__BUILD_TIME__} UTC
@@ -244,10 +246,19 @@ function DefinitionsDrawer({ onClose }) {
 }
 
 /* ---------------- PLAYERS ---------------- */
-function Players({ data, refresh }) {
+// Describes which rounds build the current Index, for the scoring-record caption.
+function selectionLabel(sel) {
+  if (!sel) return null;
+  if (sel.of >= 20) return `best ${sel.used} of 20 counting`;
+  const adj = sel.adj ? ` · ${sel.adj < 0 ? "−" : "+"}${Math.abs(sel.adj).toFixed(1)}` : "";
+  return `lowest ${sel.used} of ${sel.of}${adj}`;
+}
+
+function Players({ data, refresh, openId, clearOpen }) {
   const [name, setName] = useState("");
-  const [sel, setSel] = useState(null);
+  const [sel, setSel] = useState(openId ?? null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => { if (openId != null) clearOpen?.(); }, []);
   const courseMap = useMemo(() => Object.fromEntries(data.courses.map((c) => [c.id, c])), [data.courses]);
   const records = useMemo(
     () => Object.fromEntries(data.golfers.map((g) => [g.id, computeGolferRecord(g.id, data.scores, courseMap)])),
@@ -404,21 +415,28 @@ function PlayerDetail({ golfer, record, data, back }) {
       <div className="card">
         <div className="flex-between">
           <h3 className="serif" style={{ margin: 0, fontSize: 18 }}>Scoring record</h3>
-          <span className="pill">best 8 of 20 used</span>
+          {record.selection && <span className="pill">{selectionLabel(record.selection)}</span>}
         </div>
+        {record.countingIds?.size > 0 && (
+          <p className="sub" style={{ margin: "6px 0 0", fontSize: 12 }}>
+            Highlighted rounds are the ones counting toward the current Index.
+          </p>
+        )}
         <hr className="hr" />
         {record.rows.length === 0 ? <p className="sub" style={{ margin: 0 }}>No scores posted yet.</p> : (
           <table className="num">
             <thead><tr><th>Date</th><th>Course / Tee</th><th className="r">AGS</th><th className="r">Rtg/Slope</th><th className="r">Diff</th><th className="r">Index after</th><th></th></tr></thead>
             <tbody>
-              {record.rows.map((row) => (
+              {record.rows.map((row) => {
+                const counts = record.countingIds?.has(row.id);
+                return (
                 <Fragment key={row.id}>
-                  <tr onClick={() => setOpenRow(openRow === row.id ? null : row.id)} style={{ cursor: "pointer" }}>
+                  <tr onClick={() => setOpenRow(openRow === row.id ? null : row.id)} style={{ cursor: "pointer", background: counts ? "rgba(169,118,42,.10)" : undefined }}>
                     <td><span style={{ color: "var(--ink-soft)", marginRight: 6 }}>{openRow === row.id ? "▾" : "▸"}</span>{row.date}</td>
                     <td>{courseMap[row.courseId]?.name} · {row.tee.name}</td>
                     <td className="r">{row.ags}</td>
                     <td className="r">{row.tee.rating}/{row.tee.slope}</td>
-                    <td className="r"><b>{row.diff.toFixed(1)}</b></td>
+                    <td className="r">{counts ? <b><span style={{ color: "var(--brass)" }}>✓</span> {row.diff.toFixed(1)}</b> : row.diff.toFixed(1)}</td>
                     <td className="r">{fmtIndex(row.indexAfter)}</td>
                     <td className="r"><button className="btn danger sm" onClick={(e) => { e.stopPropagation(); removeScore(row.id); }}>Delete</button></td>
                   </tr>
@@ -428,7 +446,8 @@ function PlayerDetail({ golfer, record, data, back }) {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -804,14 +823,14 @@ function PostScore({ data, refresh, go }) {
 }
 
 /* ---------------- LEAGUES ---------------- */
-function Leagues({ data, refresh }) {
+function Leagues({ data, refresh, openPlayer }) {
   const [name, setName] = useState("");
   const [sel, setSel] = useState(null);
   const add = async () => { if (!name.trim()) return; await api.addLeague(name.trim()); setName(""); refresh(); };
 
   if (sel) {
     const lg = data.leagues.find((l) => l.id === sel);
-    if (lg) return <LeagueDetail league={lg} data={data} refresh={refresh} back={() => setSel(null)} />;
+    if (lg) return <LeagueDetail league={lg} data={data} refresh={refresh} back={() => setSel(null)} openPlayer={openPlayer} />;
   }
 
   return (
@@ -836,7 +855,7 @@ function Leagues({ data, refresh }) {
   );
 }
 
-function LeagueDetail({ league, data, refresh, back }) {
+function LeagueDetail({ league, data, refresh, back, openPlayer }) {
   const courseMap = Object.fromEntries(data.courses.map((c) => [c.id, c]));
   const records = Object.fromEntries(data.golfers.map((g) => [g.id, computeGolferRecord(g.id, data.scores, courseMap)]));
   const members = league.golferIds.map((id) => data.golfers.find((g) => g.id === id)).filter(Boolean);
@@ -844,6 +863,7 @@ function LeagueDetail({ league, data, refresh, back }) {
   const [addId, setAddId] = useState("");
   const addMember = async () => { if (!addId) return; await api.addMember(league.id, Number(addId)); setAddId(""); refresh(); };
   const removeMember = async (id) => { await api.delMember(league.id, id); refresh(); };
+  const [openMember, setOpenMember] = useState(null);
 
   const [teeId, setTeeId] = useState(data.courses[0]?.tees[0]?.id ?? "");
   let tee = null;
@@ -879,10 +899,55 @@ function LeagueDetail({ league, data, refresh, back }) {
           <table className="num">
             <thead><tr><th>Player</th><th className="r">Index</th><th className="r">Scores</th><th></th></tr></thead>
             <tbody>
-              {members.map((m) => ({ m, r: records[m.id] })).sort((a, b) => (a.r.current ?? 999) - (b.r.current ?? 999)).map(({ m, r }) => (
-                <tr key={m.id}><td>{m.name}</td><td className="r"><b>{fmtIndex(r.current)}</b></td><td className="r">{r.scoreCount}</td>
-                  <td className="r"><button className="btn danger sm" onClick={() => removeMember(m.id)}>Remove</button></td></tr>
-              ))}
+              {members.map((m) => ({ m, r: records[m.id] })).sort((a, b) => (a.r.current ?? 999) - (b.r.current ?? 999)).map(({ m, r }) => {
+                const mOpen = openMember === m.id;
+                return (
+                <Fragment key={m.id}>
+                  <tr>
+                    <td onClick={() => setOpenMember(mOpen ? null : m.id)} style={{ cursor: "pointer" }}>
+                      <span style={{ color: "var(--ink-soft)", marginRight: 6 }}>{mOpen ? "▾" : "▸"}</span>{m.name}
+                    </td>
+                    <td className="r"><b>{fmtIndex(r.current)}</b></td>
+                    <td className="r">{r.scoreCount}</td>
+                    <td className="r"><button className="btn danger sm" onClick={() => removeMember(m.id)}>Remove</button></td>
+                  </tr>
+                  {mOpen && (
+                    <tr>
+                      <td colSpan={4} style={{ background: "#faf6ec", padding: "10px 12px" }}>
+                        {r.rows.length === 0 ? (
+                          <p className="sub" style={{ margin: 0 }}>No scores posted yet.</p>
+                        ) : (
+                          <>
+                            <div className="flex-between" style={{ marginBottom: 6 }}>
+                              <span className="sub" style={{ margin: 0 }}>
+                                {r.selection ? <>Building this Index: <b>{selectionLabel(r.selection)}</b> (✓ = counts)</> : "No Index established yet."}
+                              </span>
+                              <button className="linkbtn" onClick={() => openPlayer(m.id)}>Full record →</button>
+                            </div>
+                            <table className="num" style={{ background: "var(--card)", borderRadius: 6 }}>
+                              <thead><tr><th>Date</th><th>Course / Tee</th><th className="r">AGS</th><th className="r">Diff</th></tr></thead>
+                              <tbody>
+                                {r.rows.map((row) => {
+                                  const counts = r.countingIds?.has(row.id);
+                                  return (
+                                    <tr key={row.id} style={{ background: counts ? "rgba(169,118,42,.10)" : undefined }}>
+                                      <td>{row.date}</td>
+                                      <td>{courseMap[row.courseId]?.name} · {row.tee.name}</td>
+                                      <td className="r">{row.ags}</td>
+                                      <td className="r">{counts ? <b><span style={{ color: "var(--brass)" }}>✓</span> {row.diff.toFixed(1)}</b> : row.diff.toFixed(1)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}
