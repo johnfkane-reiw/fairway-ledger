@@ -382,7 +382,8 @@ function Players({ data, refresh, openId, clearOpen, onExplainIndex }) {
   return (
     <div>
       <h1 className="h2">Players</h1>
-      <p className="sub">Each player's Handicap Index is the average of their best 8 of the last 20 score differentials.</p>
+      <p className="sub" style={{ marginBottom: 6 }}>Each player's Handicap Index is the average of their best 8 of the last 20 score differentials.</p>
+      <button className="linkbtn" style={{ marginBottom: 20, display: "inline-block" }} onClick={onExplainIndex}>How the Index is calculated — all score counts →</button>
 
       {data.golfers.length === 0 && data.courses.length === 0 && (
         <div className="note">
@@ -1030,8 +1031,16 @@ function LeagueDetail({ league, data, refresh, back, openPlayer }) {
       </div>
 
       <div className="card">
-        <h3 className="serif" style={{ margin: "0 0 6px", fontSize: 18 }}>Net-score night</h3>
-        <p className="sub">Pick a tee, enter each member's gross, and see net results (gross − Course Handicap).</p>
+        <h3 className="serif" style={{ margin: "0 0 8px", fontSize: 18 }}>Net-score night</h3>
+        <div className="note" style={{ margin: "0 0 16px" }}>
+          <b>How it works</b> — Net-score night lets players of different abilities compete fairly on the same night.
+          <ol style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            <li>Pick the tee everyone's playing.</li>
+            <li>Enter each member's gross score.</li>
+            <li>The table shows each player's Course Handicap (from their Index + that tee) and <b>Net = Gross − Course Handicap</b>, ranked lowest-first — low net wins.</li>
+          </ol>
+          <p style={{ margin: "8px 0 0" }}>A player needs an established Index (3+ scores) to get a Course Handicap, so anyone without one shows "—" until then.</p>
+        </div>
         <div className="field" style={{ maxWidth: 360 }}><label>Tee</label>
           <select value={teeId} onChange={(e) => setTeeId(e.target.value)}>
             {data.courses.map((c) => c.tees.map((t) => <option key={t.id} value={t.id}>{c.name} — {t.name} ({t.rating}/{t.slope})</option>))}
