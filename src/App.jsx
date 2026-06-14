@@ -129,6 +129,9 @@ export default function App() {
         {view === "post" && <PostScore data={data} refresh={refresh} go={setView} />}
         {view === "league" && <Leagues data={data} refresh={refresh} />}
       </main>
+      <footer className="num" style={{ textAlign: "center", padding: "8px 20px 40px", color: "var(--ink-soft)", fontSize: 12 }}>
+        Fairway Ledger · build <b>{__BUILD_SHA__}</b> · {__BUILD_TIME__} UTC
+      </footer>
     </div>
   );
 }
@@ -377,6 +380,7 @@ function ScoreDetail({ row, courseName }) {
 
 function Courses({ data, refresh }) {
   const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(null);
   const removeCourse = async (id) => { await api.delCourse(id); refresh(); };
 
   return (
@@ -392,22 +396,30 @@ function Courses({ data, refresh }) {
       {data.courses.length === 0 ? (
         <div className="card empty"><div className="serif">No courses yet</div><p>Add the courses your players play, including each set of tees.</p></div>
       ) : data.courses.map((c) => (
-        <div key={c.id} className="card">
-          <div className="flex-between">
-            <h3 className="serif" style={{ margin: 0, fontSize: 18 }}>{c.name}</h3>
-            <div className="row">
+        <div key={c.id} className="card" style={{ padding: 0 }}>
+          <div className="flex-between" style={{ padding: 16, cursor: "pointer" }} onClick={() => setOpen(open === c.id ? null : c.id)}>
+            <h3 className="serif" style={{ margin: 0, fontSize: 18 }}>
+              <span style={{ color: "var(--ink-soft)", marginRight: 8 }}>{open === c.id ? "▾" : "▸"}</span>
+              {c.name}
+              <span className="sub" style={{ margin: 0, fontWeight: 400, fontSize: 13 }}> · {c.tees.length} tee{c.tees.length !== 1 ? "s" : ""}</span>
+            </h3>
+            <div className="row" onClick={(e) => e.stopPropagation()}>
               <button className="btn ghost sm" onClick={() => setEditing(c.id)}>Edit</button>
               <button className="btn danger sm" onClick={() => removeCourse(c.id)}>Delete</button>
             </div>
           </div>
-          <hr className="hr" />
-          <table className="num">
-            <thead><tr><th>Tee</th><th className="r">Rating</th><th className="r">Slope</th><th className="r">Par</th><th className="r">Scorecard</th></tr></thead>
-            <tbody>{c.tees.map((t) => (
-              <tr key={t.id}><td>{t.name}</td><td className="r">{t.rating}</td><td className="r">{t.slope}</td><td className="r">{t.par}</td>
-                <td className="r">{t.holes ? <span className="pill">18 holes</span> : <span style={{ color: "var(--ink-soft)" }}>total only</span>}</td></tr>
-            ))}</tbody>
-          </table>
+          {open === c.id && (
+            <div style={{ padding: "0 16px 16px" }}>
+              <hr className="hr" style={{ marginTop: 0 }} />
+              <table className="num">
+                <thead><tr><th>Tee</th><th className="r">Rating</th><th className="r">Slope</th><th className="r">Par</th><th className="r">Scorecard</th></tr></thead>
+                <tbody>{c.tees.map((t) => (
+                  <tr key={t.id}><td>{t.name}</td><td className="r">{t.rating}</td><td className="r">{t.slope}</td><td className="r">{t.par}</td>
+                    <td className="r">{t.holes ? <span className="pill">18 holes</span> : <span style={{ color: "var(--ink-soft)" }}>total only</span>}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
         </div>
       ))}
 
