@@ -85,12 +85,34 @@ tr:last-child td{border-bottom:none}
 .linkbtn{background:none;border:none;color:var(--green-700);cursor:pointer;font-weight:600;font-size:14px;padding:0;text-decoration:underline}
 .hr{height:1px;background:var(--line);border:none;margin:18px 0}
 .flex-between{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.defs-btn{margin-left:auto;background:rgba(255,255,255,.08);color:#f4efe3;
+  border:1px solid rgba(197,147,63,.5);border-radius:8px;padding:7px 13px;font-size:13px;
+  cursor:pointer;font-weight:600;white-space:nowrap}
+.defs-btn:hover{background:rgba(255,255,255,.16)}
+.dscrim{position:fixed;inset:0;background:rgba(16,24,18,.4);z-index:39;animation:dfade .18s ease}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:420px;max-width:100%;background:var(--card);
+  z-index:40;box-shadow:-8px 0 30px rgba(16,24,18,.18);border-left:4px solid var(--brass);
+  display:flex;flex-direction:column;animation:dslide .22s ease}
+@keyframes dfade{from{opacity:0}to{opacity:1}}
+@keyframes dslide{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+  border-bottom:1px solid var(--line)}
+.dhead h2{font-family:Georgia,serif;font-size:20px;margin:0}
+.dbody{flex:1;overflow-y:auto;padding:4px 20px 28px}
+.def{padding:14px 0;border-bottom:1px solid var(--line)}
+.def:last-child{border-bottom:none}
+.def .term{font-weight:700;font-size:15px;margin:0 0 4px}
+.def .desc{font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0}
+.def .formula{font-size:12.5px;color:var(--ink);background:#f0ead9;border-radius:6px;
+  padding:7px 10px;margin-top:8px;line-height:1.5;white-space:pre-line}
+@media(max-width:600px){.drawer{width:100%;border-left:none}}
 `;
 
 export default function App() {
   const [data, setData] = useState(null);
   const [view, setView] = useState("players");
   const [err, setErr] = useState(null);
+  const [showDefs, setShowDefs] = useState(false);
 
   const refresh = () =>
     api.getState().then(setData).catch((e) => setErr(String(e)));
@@ -117,6 +139,7 @@ export default function App() {
           <div className="brand">Fairway <b>Ledger</b></div>
           <div className="tag">Unofficial WHS Handicap Tracking</div>
         </div>
+        <button className="defs-btn" onClick={() => setShowDefs(true)}>Definitions</button>
       </header>
       <nav className="nav">
         {[["players", "Players"], ["courses", "Courses"], ["post", "Post Score"], ["league", "Leagues"]].map(([k, l]) => (
@@ -132,7 +155,91 @@ export default function App() {
       <footer className="num" style={{ textAlign: "center", padding: "8px 20px 40px", color: "var(--ink-soft)", fontSize: 12 }}>
         Fairway Ledger · build <b>{__BUILD_SHA__}</b> · {__BUILD_TIME__} UTC
       </footer>
+      {showDefs && <DefinitionsDrawer onClose={() => setShowDefs(false)} />}
     </div>
+  );
+}
+
+/* ---------------- DEFINITIONS ---------------- */
+const DEFINITIONS = [
+  {
+    term: "Handicap Index",
+    desc: "Your portable measure of demonstrated ability, built from your best recent rounds. With 20 scores posted it's the average of your best 8 Score Differentials; with fewer, a reduced set is used. Capped at 54.0.",
+    formula: "Index = average of best 8 of last 20 Differentials\n(fewer than 20 → reduced set, e.g. 3 scores = lowest 1 − 2.0)",
+  },
+  {
+    term: "Score Differential",
+    desc: "What a single round is worth as a handicap number, after adjusting for how hard the tees played. The building block of your Index.",
+    formula: "Differential = (113 ÷ Slope) × (Adjusted Gross − Course Rating − PCC)",
+  },
+  {
+    term: "Adjusted Gross Score (AGS)",
+    desc: "Your total strokes for the round after each hole is capped at Net Double Bogey. Equals your gross score when no hole needed capping.",
+    formula: "AGS = sum of each hole's min(actual score, Net Double Bogey)",
+  },
+  {
+    term: "Net Double Bogey",
+    desc: "The most a single hole can count for handicap purposes — so one blow-up hole can't distort your Index.",
+    formula: "Net Double Bogey = par + 2 + handicap strokes received on the hole\n(before you have an Index: par + 5)",
+  },
+  {
+    term: "Course Rating",
+    desc: "The score a scratch (0-handicap) golfer is expected to shoot from a set of tees. A published value set by the course's rating authority — not calculated here.",
+  },
+  {
+    term: "Slope Rating",
+    desc: "How much harder a set of tees plays for a bogey golfer than for a scratch golfer. 113 is the standard (average) slope; higher numbers mean relatively harder for higher handicaps.",
+  },
+  {
+    term: "Course Handicap",
+    desc: "How many strokes your Index converts to on one specific set of tees — the strokes you'd receive playing those tees.",
+    formula: "Course Handicap = Index × (Slope ÷ 113) + (Course Rating − Par)",
+  },
+  {
+    term: "Playing Handicap",
+    desc: "Your Course Handicap after a format allowance is applied (100% for most stroke play; some competitions use less).",
+    formula: "Playing Handicap = Course Handicap × allowance %",
+  },
+  {
+    term: "Stroke Index",
+    desc: "The 1–18 ranking of hole difficulty printed on the scorecard, which decides the order in which your handicap strokes fall (1 = hardest hole).",
+  },
+  {
+    term: "PCC — Playing Conditions Calculation",
+    desc: "A daily −1 to +3 adjustment for how much weather and course setup affected scoring. Entered manually here; in official WHS it's computed automatically from the whole field's scores that day. It feeds the Score Differential formula above.",
+  },
+];
+
+function DefinitionsDrawer({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="dscrim" onClick={onClose} />
+      <aside className="drawer" role="dialog" aria-label="Definitions">
+        <div className="dhead">
+          <h2>Definitions</h2>
+          <button className="x" onClick={onClose} aria-label="Close" style={{ float: "none" }}>×</button>
+        </div>
+        <div className="dbody">
+          <p className="sub" style={{ margin: "10px 0 2px" }}>The WHS terms used in Fairway Ledger.</p>
+          {DEFINITIONS.map((d) => (
+            <div className="def" key={d.term}>
+              <p className="term">{d.term}</p>
+              <p className="desc">{d.desc}</p>
+              {d.formula && <div className="formula num">{d.formula}</div>}
+            </div>
+          ))}
+          <div className="note" style={{ margin: "16px 0 0" }}>
+            <b>Not modeled in Fairway Ledger:</b> 9-hole rounds, automatic PCC, Exceptional Score Reduction, and Low Handicap Index soft/hard caps. Indexes here are unofficial.
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }
 
