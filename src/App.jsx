@@ -354,6 +354,9 @@ function ScoreDetail({ row, courseName }) {
               <thead><tr><th className="lab">Hole</th>{row.holeDetail.map((d) => <th key={d.hole}>{d.hole}</th>)}<th>Tot</th></tr></thead>
               <tbody>
                 <tr><td className="lab par">Par</td>{row.holeDetail.map((d) => <td key={d.hole} className="par">{d.par}</td>)}<td className="tot">{row.par}</td></tr>
+                {row.holeDetail.some((d) => d.yd != null) && (
+                  <tr><td className="lab par">Yards</td>{row.holeDetail.map((d) => <td key={d.hole} className="par">{d.yd ?? "—"}</td>)}<td className="tot">{row.holeDetail.reduce((s, d) => s + (Number(d.yd) || 0), 0).toLocaleString()}</td></tr>
+                )}
                 <tr><td className="lab">Score</td>{row.holeDetail.map((d) => (
                   <td key={d.hole}>
                     {d.raw == null ? "—" : d.adj < d.raw
@@ -412,11 +415,15 @@ function Courses({ data, refresh }) {
             <div style={{ padding: "0 16px 16px" }}>
               <hr className="hr" style={{ marginTop: 0 }} />
               <table className="num">
-                <thead><tr><th>Tee</th><th className="r">Rating</th><th className="r">Slope</th><th className="r">Par</th><th className="r">Scorecard</th></tr></thead>
-                <tbody>{c.tees.map((t) => (
+                <thead><tr><th>Tee</th><th className="r">Rating</th><th className="r">Slope</th><th className="r">Par</th><th className="r">Yards</th><th className="r">Scorecard</th></tr></thead>
+                <tbody>{c.tees.map((t) => {
+                  const yards = t.holes ? t.holes.reduce((s, h) => s + (Number(h.yd) || 0), 0) : 0;
+                  return (
                   <tr key={t.id}><td>{t.name}</td><td className="r">{t.rating}</td><td className="r">{t.slope}</td><td className="r">{t.par}</td>
+                    <td className="r">{yards ? yards.toLocaleString() : "—"}</td>
                     <td className="r">{t.holes ? <span className="pill">18 holes</span> : <span style={{ color: "var(--ink-soft)" }}>total only</span>}</td></tr>
-                ))}</tbody>
+                  );
+                })}</tbody>
               </table>
             </div>
           )}
@@ -482,7 +489,7 @@ function CourseEditor({ course, close, refresh }) {
     const cleanTees = tees.filter((t) => t.name.trim() && t.rating && t.slope).map((t) => ({
       name: t.name.trim(), rating: Number(t.rating), slope: Number(t.slope),
       par: t.holes ? t.holes.reduce((s, h) => s + Number(h.par), 0) : Number(t.par),
-      holes: t.holes ? t.holes.map((h) => ({ par: Number(h.par), si: Number(h.si) })) : null,
+      holes: t.holes ? t.holes.map((h) => ({ par: Number(h.par), si: Number(h.si), yd: h.yd != null && h.yd !== "" ? Number(h.yd) : null })) : null,
     }));
     if (!name.trim() || cleanTees.length === 0) return;
     await api.saveCourse({ id: course?.id, name: name.trim(), tees: cleanTees });
@@ -542,6 +549,7 @@ function CourseEditor({ course, close, refresh }) {
                   <thead><tr><th className="lab">Hole</th>{t.holes.map((_, h) => <th key={h}>{h + 1}</th>)}<th>Tot</th></tr></thead>
                   <tbody>
                     <tr><td className="lab">Par</td>{t.holes.map((h, k) => <td key={k}><input value={h.par} onChange={(e) => setHole(i, k, { par: e.target.value })} /></td>)}<td className="tot">{t.holes.reduce((s, h) => s + Number(h.par || 0), 0)}</td></tr>
+                    <tr><td className="lab">Yards</td>{t.holes.map((h, k) => <td key={k}><input value={h.yd ?? ""} onChange={(e) => setHole(i, k, { yd: e.target.value.replace(/\D/g, "") })} /></td>)}<td className="tot">{t.holes.reduce((s, h) => s + (Number(h.yd) || 0), 0) || "—"}</td></tr>
                     <tr><td className="lab">Stroke index</td>{t.holes.map((h, k) => <td key={k}><input value={h.si} onChange={(e) => setHole(i, k, { si: e.target.value })} /></td>)}<td className="tot">—</td></tr>
                   </tbody>
                 </table>
@@ -636,6 +644,9 @@ function PostScore({ data, refresh, go }) {
               <thead><tr><th className="lab">Hole</th>{tee.holes.map((_, h) => <th key={h}>{h + 1}</th>)}<th>Tot</th></tr></thead>
               <tbody>
                 <tr><td className="lab par">Par</td>{tee.holes.map((h, k) => <td key={k} className="par">{h.par}</td>)}<td className="tot">{tee.par}</td></tr>
+                {tee.holes.some((h) => h.yd != null) && (
+                  <tr><td className="lab par">Yards</td>{tee.holes.map((h, k) => <td key={k} className="par">{h.yd ?? "—"}</td>)}<td className="tot">{tee.holes.reduce((s, h) => s + (Number(h.yd) || 0), 0).toLocaleString()}</td></tr>
+                )}
                 <tr><td className="lab">Score</td>{tee.holes.map((_, k) => (
                   <td key={k}><input inputMode="numeric" value={holeScores[k]} onChange={(e) => setHoleScores((hs) => hs.map((v, j) => j === k ? e.target.value.replace(/\D/g, "") : v))} /></td>
                 ))}<td className="tot">{holeScores.reduce((s, v) => s + (Number(v) || 0), 0) || "—"}</td></tr>
