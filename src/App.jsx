@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { api } from "./lib/api.js";
 import {
   computeGolferRecord, courseHandicap, adjustedGrossFromHoles,
@@ -248,6 +248,7 @@ function PlayerDetail({ golfer, record, data, back }) {
   const ph = ch != null ? Math.round(ch * (allowance / 100)) : null;
 
   const removeScore = async (id) => { await api.delScore(id); back(); };
+  const [openRow, setOpenRow] = useState(null);
 
   return (
     <div>
@@ -290,15 +291,22 @@ function PlayerDetail({ golfer, record, data, back }) {
             <thead><tr><th>Date</th><th>Course / Tee</th><th className="r">AGS</th><th className="r">Rtg/Slope</th><th className="r">Diff</th><th className="r">Index after</th><th></th></tr></thead>
             <tbody>
               {record.rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.date}</td>
-                  <td>{courseMap[row.courseId]?.name} · {row.tee.name}</td>
-                  <td className="r">{row.ags}</td>
-                  <td className="r">{row.tee.rating}/{row.tee.slope}</td>
-                  <td className="r"><b>{row.diff.toFixed(1)}</b></td>
-                  <td className="r">{fmtIndex(row.indexAfter)}</td>
-                  <td className="r"><button className="btn danger sm" onClick={() => removeScore(row.id)}>Delete</button></td>
-                </tr>
+                <Fragment key={row.id}>
+                  <tr onClick={() => setOpenRow(openRow === row.id ? null : row.id)} style={{ cursor: "pointer" }}>
+                    <td><span style={{ color: "var(--ink-soft)", marginRight: 6 }}>{openRow === row.id ? "▾" : "▸"}</span>{row.date}</td>
+                    <td>{courseMap[row.courseId]?.name} · {row.tee.name}</td>
+                    <td className="r">{row.ags}</td>
+                    <td className="r">{row.tee.rating}/{row.tee.slope}</td>
+                    <td className="r"><b>{row.diff.toFixed(1)}</b></td>
+                    <td className="r">{fmtIndex(row.indexAfter)}</td>
+                    <td className="r"><button className="btn danger sm" onClick={(e) => { e.stopPropagation(); removeScore(row.id); }}>Delete</button></td>
+                  </tr>
+                  {openRow === row.id && (
+                    <tr>
+                      <td colSpan={7} style={{ background: "#faf6ec", padding: 0 }}><ScoreDetail row={row} courseName={courseMap[row.courseId]?.name} /></td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -309,6 +317,53 @@ function PlayerDetail({ golfer, record, data, back }) {
 }
 
 /* ---------------- COURSES ---------------- */
+function ScoreDetail({ row, courseName }) {
+  const toPar = (n) => (n === 0 ? "E" : n > 0 ? `+${n}` : `${n}`);
+  const capped = row.holeDetail && row.holeDetail.some((d) => d.adj != null && d.adj < d.raw);
+  return (
+    <div>
+      <div style={{ padding: "12px 14px 2px", fontWeight: 600, fontSize: 14 }}>
+        {courseName} — {row.tee.name}
+        <span className="sub" style={{ fontWeight: 400 }}> · {row.tee.rating}/{row.tee.slope} · par {row.par}</span>
+      </div>
+      <div className="num" style={{ padding: "4px 14px 0", display: "flex", gap: 20, flexWrap: "wrap", fontSize: 13 }}>
+        <span>Gross <b>{row.grossTotal}</b></span>
+        <span>Adjusted gross <b>{row.ags}</b></span>
+        <span>To par <b>{toPar(row.toPar)}</b></span>
+        <span>Differential <b>{row.diff.toFixed(1)}</b></span>
+        {row.pcc ? <span>PCC <b>{row.pcc > 0 ? `+${row.pcc}` : row.pcc}</b></span> : null}
+      </div>
+      {row.holeDetail ? (
+        <>
+          <div className="scorecard" style={{ margin: 12 }}>
+            <table className="num">
+              <thead><tr><th className="lab">Hole</th>{row.holeDetail.map((d) => <th key={d.hole}>{d.hole}</th>)}<th>Tot</th></tr></thead>
+              <tbody>
+                <tr><td className="lab par">Par</td>{row.holeDetail.map((d) => <td key={d.hole} className="par">{d.par}</td>)}<td className="tot">{row.par}</td></tr>
+                <tr><td className="lab">Score</td>{row.holeDetail.map((d) => (
+                  <td key={d.hole}>
+                    {d.raw == null ? "—" : d.adj < d.raw
+                      ? <span>{d.raw}<span style={{ color: "var(--brass)", fontWeight: 700 }}>→{d.adj}</span></span>
+                      : d.raw}
+                  </td>
+                ))}<td className="tot">{row.ags}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          {capped && (
+            <p className="sub" style={{ padding: "0 14px 12px", margin: 0, fontSize: 12 }}>
+              Holes shown as <b>entered→counted</b> were capped to Net Double Bogey for handicap purposes.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="sub" style={{ padding: "8px 14px 12px", margin: 0 }}>Entered as a total adjusted gross — no hole-by-hole detail recorded for this round.</p>
+      )}
+    </div>
+  );
+}
+
+
 function Courses({ data, refresh }) {
   const [editing, setEditing] = useState(null);
   const removeCourse = async (id) => { await api.delCourse(id); refresh(); };
