@@ -106,6 +106,10 @@ tr:last-child td{border-bottom:none}
 .def .formula{font-size:12.5px;color:var(--ink);background:#f0ead9;border-radius:6px;
   padding:7px 10px;margin-top:8px;line-height:1.5;white-space:pre-line}
 @media(max-width:600px){.drawer{width:100%;border-left:none}}
+.dscrim.l2{z-index:49}
+.drawer.l2{z-index:50}
+.calc th,.calc td{padding:7px 9px;font-size:13px}
+.calc tbody tr:hover{background:#faf6ec}
 `;
 
 export default function App() {
@@ -115,6 +119,7 @@ export default function App() {
   const [showDefs, setShowDefs] = useState(false);
   const [pendingPlayer, setPendingPlayer] = useState(null);
   const openPlayer = (id) => { setPendingPlayer(id); setView("players"); };
+  const [showIndexCalc, setShowIndexCalc] = useState(false);
 
   const refresh = () =>
     api.getState().then(setData).catch((e) => setErr(String(e)));
@@ -149,7 +154,7 @@ export default function App() {
         ))}
       </nav>
       <main className="wrap">
-        {view === "players" && <Players data={data} refresh={refresh} openId={pendingPlayer} clearOpen={() => setPendingPlayer(null)} />}
+        {view === "players" && <Players data={data} refresh={refresh} openId={pendingPlayer} clearOpen={() => setPendingPlayer(null)} onExplainIndex={() => setShowIndexCalc(true)} />}
         {view === "courses" && <Courses data={data} refresh={refresh} />}
         {view === "post" && <PostScore data={data} refresh={refresh} go={setView} />}
         {view === "league" && <Leagues data={data} refresh={refresh} openPlayer={openPlayer} />}
@@ -157,7 +162,8 @@ export default function App() {
       <footer className="num" style={{ textAlign: "center", padding: "8px 20px 40px", color: "var(--ink-soft)", fontSize: 12 }}>
         Fairway Ledger · build <b>{__BUILD_SHA__}</b> · {__BUILD_TIME__} UTC
       </footer>
-      {showDefs && <DefinitionsDrawer onClose={() => setShowDefs(false)} />}
+      {showDefs && <DefinitionsDrawer onClose={() => setShowDefs(false)} onOpenIndexCalc={() => setShowIndexCalc(true)} />}
+      {showIndexCalc && <IndexCalcDrawer onClose={() => setShowIndexCalc(false)} />}
     </div>
   );
 }
@@ -168,6 +174,7 @@ const DEFINITIONS = [
     term: "Handicap Index",
     desc: "Your portable measure of demonstrated ability, built from your best recent rounds. With 20 scores posted it's the average of your best 8 Score Differentials; with fewer, a reduced set is used. Capped at 54.0.",
     formula: "Index = average of best 8 of last 20 Differentials\n(fewer than 20 → reduced set, e.g. 3 scores = lowest 1 − 2.0)",
+    link: "How the Index is calculated — all score counts →",
   },
   {
     term: "Score Differential",
@@ -212,7 +219,7 @@ const DEFINITIONS = [
   },
 ];
 
-function DefinitionsDrawer({ onClose }) {
+function DefinitionsDrawer({ onClose, onOpenIndexCalc }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -234,10 +241,75 @@ function DefinitionsDrawer({ onClose }) {
               <p className="term">{d.term}</p>
               <p className="desc">{d.desc}</p>
               {d.formula && <div className="formula num">{d.formula}</div>}
+              {d.link && (
+                <button className="linkbtn" style={{ marginTop: 8, textAlign: "left" }} onClick={onOpenIndexCalc}>{d.link}</button>
+              )}
             </div>
           ))}
           <div className="note" style={{ margin: "16px 0 0" }}>
             <b>Not modeled in Fairway Ledger:</b> 9-hole rounds, automatic PCC, Exceptional Score Reduction, and Low Handicap Index soft/hard caps. Indexes here are unofficial.
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+/* ---------------- INDEX CALC DRAWER ---------------- */
+const CALC_ROWS = [
+  ["3", "lowest 1", "−2.0"],
+  ["4", "lowest 1", "−1.0"],
+  ["5", "lowest 1", "—"],
+  ["6", "lowest 2", "−1.0"],
+  ["7–8", "lowest 2", "—"],
+  ["9–11", "lowest 3", "—"],
+  ["12–14", "lowest 4", "—"],
+  ["15–16", "lowest 5", "—"],
+  ["17–18", "lowest 6", "—"],
+  ["19", "lowest 7", "—"],
+  ["20", "lowest 8", "—"],
+];
+
+function IndexCalcDrawer({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="dscrim l2" onClick={onClose} />
+      <aside className="drawer l2" role="dialog" aria-label="How the Index is calculated">
+        <div className="dhead">
+          <h2>How the Index is calculated</h2>
+          <button className="x" onClick={onClose} aria-label="Close" style={{ float: "none" }}>×</button>
+        </div>
+        <div className="dbody">
+          <p className="desc" style={{ margin: "10px 0 14px" }}>
+            Your Index comes from the best of your most recent Score Differentials. How many count — and whether a small adjustment applies — depends on how many scores are in your record.
+          </p>
+
+          <p className="term" style={{ margin: "0 0 4px" }}>20 or more scores</p>
+          <p className="desc" style={{ margin: "0 0 14px" }}>
+            The average of your <b>best 8</b> of the last <b>20</b> Differentials. Older rounds drop out of the window as new ones come in.
+          </p>
+
+          <p className="term" style={{ margin: "0 0 6px" }}>Fewer than 20 (but 3 or more)</p>
+          <table className="num calc" style={{ background: "var(--card)", borderRadius: 6, marginBottom: 12 }}>
+            <thead><tr><th>Scores in record</th><th>Differentials used</th><th className="r">Adjustment</th></tr></thead>
+            <tbody>
+              {CALC_ROWS.map((row) => (
+                <tr key={row[0]}><td>{row[0]}</td><td>{row[1]}</td><td className="r">{row[2]}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="desc" style={{ margin: "0 0 10px" }}>
+            "Lowest N" means the average of your N lowest Differentials (for N = 1, just that single round). The adjustments on 3, 4, and 6 scores nudge the Index down, since a small sample tends to overstate ability.
+          </p>
+          <div className="note" style={{ margin: 0 }}>
+            A minimum of <b>3 scores</b> is needed before any Index exists. On a player's record, the rounds currently counting are highlighted with a ✓.
           </div>
         </div>
       </aside>
@@ -254,7 +326,7 @@ function selectionLabel(sel) {
   return `lowest ${sel.used} of ${sel.of}${adj}`;
 }
 
-function Players({ data, refresh, openId, clearOpen }) {
+function Players({ data, refresh, openId, clearOpen, onExplainIndex }) {
   const [name, setName] = useState("");
   const [sel, setSel] = useState(openId ?? null);
   const [busy, setBusy] = useState(false);
@@ -304,7 +376,7 @@ function Players({ data, refresh, openId, clearOpen }) {
 
   if (sel) {
     const g = data.golfers.find((x) => x.id === sel);
-    if (g) return <PlayerDetail golfer={g} record={records[sel]} data={data} back={() => setSel(null)} />;
+    if (g) return <PlayerDetail golfer={g} record={records[sel]} data={data} back={() => setSel(null)} onExplainIndex={onExplainIndex} />;
   }
 
   return (
@@ -359,7 +431,7 @@ function Players({ data, refresh, openId, clearOpen }) {
   );
 }
 
-function PlayerDetail({ golfer, record, data, back }) {
+function PlayerDetail({ golfer, record, data, back, onExplainIndex }) {
   const courseMap = Object.fromEntries(data.courses.map((c) => [c.id, c]));
   const [teeId, setTeeId] = useState(record.rows[0]?.teeId ?? data.courses[0]?.tees[0]?.id ?? null);
   const allowance = data.settings.allowance;
@@ -415,7 +487,11 @@ function PlayerDetail({ golfer, record, data, back }) {
       <div className="card">
         <div className="flex-between">
           <h3 className="serif" style={{ margin: 0, fontSize: 18 }}>Scoring record</h3>
-          {record.selection && <span className="pill">{selectionLabel(record.selection)}</span>}
+          {record.selection && (
+            <button className="pill" onClick={onExplainIndex} style={{ border: "none", cursor: "pointer" }} title="How the Index is calculated">
+              {selectionLabel(record.selection)} <span style={{ color: "var(--brass)" }}>ⓘ</span>
+            </button>
+          )}
         </div>
         {record.countingIds?.size > 0 && (
           <p className="sub" style={{ margin: "6px 0 0", fontSize: 12 }}>
