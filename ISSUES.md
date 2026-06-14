@@ -51,6 +51,46 @@ Update as things change — move fixed items down to **Resolved**, or delete the
 
 ---
 
+## Upgrade ideas (bigger bets)
+
+### Full multi-user / multi-tenant version
+- **What:** Turn the single shared dataset into a real multi-user app:
+  - **Public self-signup** — anyone can create and manage their own account.
+  - **Own your data** — each user edits only their own players/scores.
+  - **Private by default** — a user's entries are invisible to others unless they
+    tick a checkbox to let others **view** (never edit) them.
+  - **Leagues as a tenancy layer** — create/join a league; members see that league's
+    data **and only that league's**. Join via invite/code; admin vs member roles.
+  - Visibility model becomes layered: a row is visible if it's **mine**, OR
+    **opted-shared**, OR **in a league I belong to**. That overlap is the tricky part.
+- **Effort:** A real step up — several× the current build. Cost concentrates in
+  **(a) authentication** and **(b) the layered visibility/authorization logic**;
+  the **league = multi-tenancy** piece is the biggest single chunk. Privacy bugs here
+  are the worst kind (wrong query → someone sees data they shouldn't), so this carries
+  a real testing/correctness burden.
+- **Carries over unchanged:** the WHS engine (`whs.js`), the React shell, the deploy
+  pipeline, and the git workflow. **Gets rebuilt:** the data model and the **entire API
+  layer** (now identity- and permission-aware), plus new signup / login / account /
+  league-management screens.
+- **The fork to decide first (it's not a feature — it's where auth + data live):**
+  - **Stay Cloudflare-native (D1):** hand-write all auth + permission logic. $0 forever
+    at this scale (no inactivity pause; Access free ≤50 users; D1 free limits are huge),
+    but you build and own the security yourself.
+  - **Move to Supabase:** built-in Auth + Row-Level Security enforce "own + shared +
+    same-league" at the database — which is exactly the hardest, most privacy-sensitive
+    part. ~$25/mo Pro to stay always-on + backed up (free tier pauses after 7 days idle
+    and has no backups). Storage/DB volume never drives the bill either way — golf data
+    is tiny.
+  - **Leaning:** don't hand-roll auth. Use a managed provider (Supabase Auth, or a
+    dedicated auth service in front of D1). The $25/mo mostly buys back engineering time
+    on the riskiest code.
+- **Relationship to existing items:** the two Open auth items above
+  ("Auth is not enforced" → "No per-player login") are the first two rungs of this same
+  ladder. This entry is the full climb.
+- **Status:** idea only — no build started, no decision made. Revisit when ready.
+
+---
+
 ## Housekeeping
 
 - The `ship` script in the repo root is left over from the abandoned local-git workflow
