@@ -140,7 +140,22 @@ export function computeGolferRecord(golferId, scores, courseMap) {
         )
       : null;
 
-  return { current, lowHI, rows: rows.reverse(), scoreCount: mine.length };
+  // which rounds currently count toward the Index (lowest N of the last 20, per the table)
+  const recentChrono = mine.slice(-20);
+  let countingIds = new Set();
+  let selection = null;
+  if (recentChrono.length >= 3) {
+    const key = recentChrono.length >= 20 ? 20 : recentChrono.length;
+    const [cnt, adj] = LOWEST_TABLE[key];
+    const diffById = new Map(rows.map((r) => [r.id, r.diff]));
+    const ranked = [...recentChrono]
+      .sort((a, b) => (diffById.get(a.id) - diffById.get(b.id)) || (b.t - a.t))
+      .slice(0, cnt);
+    countingIds = new Set(ranked.map((r) => r.id));
+    selection = { used: cnt, of: recentChrono.length, adj };
+  }
+
+  return { current, lowHI, rows: rows.reverse(), scoreCount: mine.length, countingIds, selection };
 }
 
 export const fmtIndex = (i) =>
