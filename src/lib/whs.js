@@ -92,12 +92,22 @@ export function computeGolferRecord(golferId, scores, courseMap) {
       ? indexHistory[indexHistory.length - 1].index
       : null;
 
-    let ags;
+    let ags, grossTotal, holeDetail = null;
     if (s.holeScores) {
-      ags = adjustedGrossFromHoles(s.holeScores, s.tee, runningIndex);
+      const ch = runningIndex == null ? null : courseHandicap(runningIndex, s.tee);
+      holeDetail = s.tee.holes.map((h, i) => {
+        const v = s.holeScores[i];
+        const raw = v == null || v === "" || isNaN(v) ? null : Number(v);
+        const cap = ch == null ? h.par + 5 : h.par + 2 + strokesOnHole(ch, h.si);
+        return { hole: i + 1, par: h.par, si: h.si, raw, cap, adj: raw == null ? null : Math.min(raw, cap) };
+      });
+      grossTotal = holeDetail.reduce((t, d) => t + (d.raw || 0), 0);
+      ags = holeDetail.reduce((t, d) => t + (d.adj || 0), 0);
     } else {
       ags = Number(s.adjustedGross);
+      grossTotal = ags;
     }
+    const toPar = ags - s.tee.par;
     const diff = scoreDifferential(ags, s.tee.rating, s.tee.slope, s.pcc || 0);
     diffs.push({ date: s.date, t: s.t, value: diff });
 
@@ -117,7 +127,7 @@ export function computeGolferRecord(golferId, scores, courseMap) {
     }
     if (finalIndex != null) indexHistory.push({ date: s.date, t: s.t, index: finalIndex });
 
-    rows.push({ ...s, ags, diff, indexAfter: finalIndex });
+    rows.push({ ...s, ags, grossTotal, toPar, par: s.tee.par, holeDetail, diff, indexAfter: finalIndex });
   }
 
   const current = indexHistory.length ? indexHistory[indexHistory.length - 1].index : null;
