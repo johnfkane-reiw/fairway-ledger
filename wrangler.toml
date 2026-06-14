@@ -1,0 +1,9 @@
+name = "fairway-ledger"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "dist"
+
+# After running `wrangler d1 create fairway-ledger`, paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "fairway-ledger"
+database_id = "PASTE_DATABASE_ID_HERE"
