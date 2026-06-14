@@ -240,7 +240,7 @@ function Players({ data, refresh }) {
 
 function PlayerDetail({ golfer, record, data, back }) {
   const courseMap = Object.fromEntries(data.courses.map((c) => [c.id, c]));
-  const [teeId, setTeeId] = useState(data.courses[0]?.tees[0]?.id ?? null);
+  const [teeId, setTeeId] = useState(record.rows[0]?.teeId ?? data.courses[0]?.tees[0]?.id ?? null);
   const allowance = data.settings.allowance;
   let tee = null;
   for (const c of data.courses) { const t = c.tees.find((x) => x.id === Number(teeId)); if (t) tee = t; }
@@ -265,18 +265,29 @@ function PlayerDetail({ golfer, record, data, back }) {
           </div>
         </div>
         <div className="card" style={{ flex: 1, minWidth: 240, marginBottom: 16 }}>
-          <label>Course / Playing Handicap on tee</label>
+          <label>Course &amp; Playing Handicap</label>
+          <p className="sub" style={{ margin: "0 0 10px", fontSize: 12 }}>
+            How many strokes this player gets on a chosen set of tees, converted from their Handicap Index.
+          </p>
           <select value={teeId ?? ""} onChange={(e) => setTeeId(e.target.value)}>
             {data.courses.map((c) => c.tees.map((t) => (
               <option key={t.id} value={t.id}>{c.name} — {t.name} ({t.rating}/{t.slope})</option>
             )))}
           </select>
-          {tee && record.current != null ? (
+          {record.current == null ? (
+            <p className="sub" style={{ marginTop: 12 }}>
+              {record.scoreCount < 3
+                ? <>Appears once an Index is established — {3 - record.scoreCount} more score{3 - record.scoreCount !== 1 ? "s" : ""} to go.</>
+                : <>Appears once an Index is established.</>}
+            </p>
+          ) : tee ? (
             <div style={{ marginTop: 14 }} className="num">
               <div style={{ fontSize: 34, fontFamily: "Georgia,serif" }}>{ch}</div>
-              <div className="sub" style={{ margin: 0 }}>Course Handicap · Playing Handicap <b>{ph}</b> at {allowance}%</div>
+              <div className="sub" style={{ margin: 0 }}>
+                Course Handicap on {tee.name} · Playing Handicap <b>{ph}</b> at {allowance}%
+              </div>
             </div>
-          ) : <p className="sub" style={{ marginTop: 14 }}>Needs an established Index and a course.</p>}
+          ) : <p className="sub" style={{ marginTop: 12 }}>Add a course to see strokes.</p>}
         </div>
       </div>
 
