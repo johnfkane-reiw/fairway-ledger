@@ -1031,13 +1031,14 @@ function LeagueDetail({ league, data, refresh, back, openPlayer }) {
       </div>
 
       <div className="card">
-        <h3 className="serif" style={{ margin: "0 0 8px", fontSize: 18 }}>Net-score night</h3>
+        <h3 className="serif" style={{ margin: "0 0 4px", fontSize: 18 }}>Course Handicap &amp; Net Score</h3>
+        <p className="sub" style={{ marginBottom: 12 }}>Find your Course Handicap and post-round net score on any added course.</p>
         <div className="note" style={{ margin: "0 0 16px" }}>
-          <b>How it works</b> — Net-score night lets players of different abilities compete fairly on the same night.
+          <b>How it works</b> — Pick a tee and the table shows every member's Course Handicap for it. To score a round, enter each member's gross and they're ranked by net.
           <ol style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             <li>Pick the tee everyone's playing.</li>
-            <li>Enter each member's gross score.</li>
-            <li>The table shows each player's Course Handicap (from their Index + that tee) and <b>Net = Gross − Course Handicap</b>, ranked lowest-first — low net wins.</li>
+            <li>Read each member's Course Handicap for that tee — or enter a gross score to score the round.</li>
+            <li><b>Net = Gross − Course Handicap</b>, ranked lowest-first — low net wins.</li>
           </ol>
           <p style={{ margin: "8px 0 0" }}>A player needs an established Index (3+ scores) to get a Course Handicap, so anyone without one shows "—" until then.</p>
         </div>
