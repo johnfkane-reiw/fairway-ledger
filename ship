@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+cd "$(dirname "$0")"
+git add -A
+if git diff --cached --quiet; then
+  echo "Nothing to ship — no changes."
+  exit 0
+fi
+git commit -m "${1:-update}"
+git pull --rebase --autostash
+git push
+echo "Shipped: ${1:-update} — Cloudflare will redeploy in ~1-2 min."
