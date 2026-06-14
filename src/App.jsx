@@ -367,6 +367,39 @@ function CourseEditor({ course, close, refresh }) {
   const setHole = (i, h, patch) =>
     setTee(i, { holes: tees[i].holes.map((hole, k) => (k === h ? { ...hole, ...patch } : hole)) });
 
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
+  const runSearch = async () => {
+    if (q.trim().length < 2) return;
+    setSearching(true); setLookupError(""); setResults(null);
+    try {
+      const r = await fetch("/api/course-search?q=" + encodeURIComponent(q.trim())).then((x) => x.json());
+      if (r.error) setLookupError(r.error);
+      else setResults(r.results || []);
+    } catch { setLookupError("Search request failed."); }
+    setSearching(false);
+  };
+
+  const pick = async (externalId) => {
+    setSearching(true); setLookupError("");
+    try {
+      const r = await fetch("/api/course-search?id=" + encodeURIComponent(externalId)).then((x) => x.json());
+      if (r.error || !r.course) { setLookupError(r.error || "Couldn't load that course."); }
+      else if (!r.course.tees.length) { setLookupError("That course has no rated tees in the database — enter it manually below."); }
+      else {
+        setName(r.course.name);
+        setTees(r.course.tees.map((t) => ({
+          name: t.name, rating: String(t.rating), slope: String(t.slope), par: t.par, holes: t.holes,
+        })));
+        setResults(null); setQ("");
+      }
+    } catch { setLookupError("Couldn't load that course."); }
+    setSearching(false);
+  };
+
   const save = async () => {
     const cleanTees = tees.filter((t) => t.name.trim() && t.rating && t.slope).map((t) => ({
       name: t.name.trim(), rating: Number(t.rating), slope: Number(t.slope),
@@ -383,6 +416,34 @@ function CourseEditor({ course, close, refresh }) {
       <div className="box">
         <button className="x" onClick={close}>×</button>
         <h2 className="serif" style={{ margin: "0 0 16px" }}>{course ? "Edit course" : "Add course"}</h2>
+
+        <div className="card" style={{ background: "#eef3ee", borderColor: "#cfe0d2" }}>
+          <label>Find a course to auto-fill</label>
+          <div className="row" style={{ alignItems: "stretch" }}>
+            <input style={{ flex: 1 }} value={q} placeholder="Type a course name, e.g. Pebble Beach"
+              onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runSearch()} />
+            <button className="btn sm" onClick={runSearch} disabled={searching}>{searching ? "…" : "Search"}</button>
+          </div>
+          {results && results.length === 0 && (
+            <p className="sub" style={{ margin: "8px 0 0" }}>No matches — just enter the course manually below.</p>
+          )}
+          {results && results.length > 0 && (
+            <div style={{ marginTop: 10, maxHeight: 220, overflow: "auto", border: "1px solid var(--line)", borderRadius: 8, background: "#fff" }}>
+              {results.map((r) => (
+                <div key={r.externalId} onClick={() => pick(r.externalId)}
+                  style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ fontWeight: 600 }}>{r.name}</div>
+                  <div className="sub" style={{ margin: 0 }}>{r.club}{r.location ? ` · ${r.location}` : ""}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {lookupError && <p className="sub" style={{ margin: "8px 0 0", color: "var(--red)" }}>{lookupError}</p>}
+          <p className="sub" style={{ margin: "10px 0 0", fontSize: 12 }}>
+            Pick a result to fill in the tees, ratings, and scorecard below — then adjust anything before saving.
+          </p>
+        </div>
+
         <div className="field"><label>Course name</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Carolina National" /></div>
         {tees.map((t, i) => (
